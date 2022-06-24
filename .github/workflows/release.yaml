@@ -7,7 +7,7 @@ on:
 
 env:
   BIN_NAME: biliup-http
-  PROJECT_NAME: biliup-httpsteps.get_version.outputs.VERSION
+  PROJECT_NAME: biliup-http
 #  REPO_NAME: spectralops/rust-ci-release-template
 #  BREW_TAP: jondot/homebrew-tap
 
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64-linux, x86_64-linux-musl, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos] #, x86_64-win-gnu, win32-msvc
+        build: [x86_64-linux,x86_64-macos, x86_64-windows, aarch64-macos] #, x86_64-win-gnu, win32-msvc 去除 x86_64-linux-musl, aarch64-linux, 
         include:
         - build: x86_64-linux
           os: ubuntu-20.04
