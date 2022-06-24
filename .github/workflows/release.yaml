@@ -1,13 +1,13 @@
 name: Release
 on:
   push:
-    # tags:
-    # - 'v[0-9]+.[0-9]+.[0-9]+'
+    tags:
+    - 'v[0-9]+.[0-9]+.[0-9]+'
     ## - release
 
 env:
   BIN_NAME: biliup-http
-  PROJECT_NAME: biliup-http
+  PROJECT_NAME: biliup-httpsteps.get_version.outputs.VERSION
 #  REPO_NAME: spectralops/rust-ci-release-template
 #  BREW_TAP: jondot/homebrew-tap
 
