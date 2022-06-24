@@ -36,7 +36,7 @@ async fn main() {
         .route("/upload", post(uploadr)).layer(Extension(db.clone()))
         .route("/state", get(state)).layer(Extension(db.clone()));
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::info!("listening on {}", addr);
+    println!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -53,9 +53,11 @@ async fn state(
     Extension(db):Extension<Arc<Mutex<HashMap<String,String>>>>,
     Query(params): Query<Params>
 ) -> String {
-    println!("taskid_{:?}",params.task_id);
-
-    return Extension(db).lock().unwrap().clone().get(&params.task_id).unwrap().to_string()
+    // println!("taskid_{:?}",params.task_id);
+    match Extension(db).lock().unwrap().clone().get(&params.task_id) {
+        Some(v) => return  v.to_string(),
+        None => return "任务不存在!".to_string(),  
+    }
 }
 
 
