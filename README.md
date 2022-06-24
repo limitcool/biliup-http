@@ -53,6 +53,7 @@ Cargo run
     "up_selection_reply":false,
     "up_close_reply":false,
     "up_close_danmu":false,
+    // Linux和Windows路径通用分隔符为"/",如只在win使用可以将Windows路径分隔符修改为"\\"
     "video_path":"C:/Users/Andorid/Videos/test.mp4",
     "cover_path":"C:/Users/Andorid/Desktop/test.jpg"
 }
