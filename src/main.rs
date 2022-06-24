@@ -36,7 +36,7 @@ async fn main() {
         .route("/upload", post(uploadr)).layer(Extension(db.clone()))
         .route("/state", get(state)).layer(Extension(db.clone()));
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -46,7 +46,7 @@ async fn main() {
 
 async fn root(
 ) -> &'static str {
-    return "hello world";
+    return "hello biliup-http!";
 }
 
 async fn state(
@@ -64,11 +64,23 @@ async fn uploadr(
     Json(payload):Json<UploadRequest>
 ) ->  impl IntoResponse {
     // println!("{:?}", payload);
-    println!("{:?}", payload.tid);
+    // println!("{:?}", payload.tid);
     if payload.source.is_empty() {
         println!("source is required");
         return (StatusCode::BAD_REQUEST, "source is required".into_response());
-    }
+    };
+    if payload.title.is_empty(){
+        println!("title is required");
+        return (StatusCode::BAD_REQUEST, "title is required".into_response());
+    };
+    if payload.desc.is_empty(){
+        println!("desc is required");
+        return (StatusCode::BAD_REQUEST, "desc is required".into_response());
+    };
+    if payload.tag.is_empty(){
+        println!("tags is required");
+        return (StatusCode::BAD_REQUEST, "tags is required".into_response());
+    };
     let task_id = Uuid::new_v4().to_string(); 
     let rid = task_id.clone();
     tokio::spawn(async move {
@@ -130,9 +142,9 @@ struct UploadRequest {
     desc_format_id: u32,
     desc: String,
     dynamic: String,
-    subtitle: Subtitle,
+    // subtitle: Subtitle,
     tag: String,
-    videos: Vec<Video>,
+    // videos: Vec<Video>,
     dtime: Option<u32>,
     open_subtitle: bool,
     interactive: u8,
@@ -275,22 +287,52 @@ async fn upload_video(uuid:String,u: &UploadRequest,db:Extension<Arc<Mutex<HashM
             .read(true)
             .write(true)
             .open(Path::new("cookies.json"));
-        client.login_by_cookies(cookies_file.unwrap()).await.expect("login failed")
+        match cookies_file{
+            Err(_) => {
+                db.lock().unwrap().insert(uuid, "cookies.json不存在".to_string());
+                return;
+            },
+            _ =>{}
+        };
+        match client.login_by_cookies(cookies_file.unwrap()).await {
+            Ok(login_info) => login_info,
+            Err(_) => {
+                db.lock().unwrap().insert(uuid, "登录失败,请检查cookie".to_string());
+                return;
+            }
+        }
     };
     // 上传封面
     if !s.cover.starts_with("http") {
-        let cover_url = BiliBili::new(&login_info, &client)
-        .cover_up(&std::fs::read(Path::new(&u.cover_path.clone())).unwrap())
-        .await;
-        s.cover = cover_url.unwrap();
+        let bilibili = BiliBili::new(&login_info, &client);
+        match &std::fs::read(Path::new(&u.cover_path.clone())) {
+            Ok(_cover) => {
+                let cover_url = bilibili.cover_up(&std::fs::read(Path::new(&u.cover_path.clone())).unwrap()).await;
+                s.cover = cover_url.unwrap();
+            }
+            Err(_) => {
+                db.lock().unwrap().insert(uuid, "读取封面错误".to_string());
+                return;
+            }
+        };
     }
     let video_path = PathBuf::from(u.video_path.clone());
     let paths = vec![video_path];
     let uid = uuid.clone();
     db.lock().unwrap().insert(uuid, "进行中".to_string());
-
-    s.videos = upload(&paths , &client,Some(UploadLine::Ws), 3).await.unwrap();
-    s.submit(&login_info).await.expect("submit failed");
+    match upload(&paths , &client,Some(UploadLine::Ws), 3).await {
+        Ok(videos) => {s.videos=videos;}
+        _ => {
+            db.lock().unwrap().insert(uid.clone(),"视频文件不存在".to_string());
+            return;
+        }
+    }
+    match s.submit(&login_info).await {
+        Ok(_) => {}
+        Err(_) => {
+            db.lock().unwrap().insert(uid.clone(), "上传失败".to_string());
+        }
+    };
     db.lock().unwrap().insert(uid, "已完成".to_string());
 }
 
