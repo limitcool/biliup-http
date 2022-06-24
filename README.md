@@ -15,11 +15,37 @@ git clone https://github.com/limitcool/biliup-http.git
 cargo build 
 ```
 
-### 上传接口请求示例
+### 上传视频接口请求示例
 
-##### 请求地址: [POST] 127.0.0.1:3000/upload
+> ##### http://127.0.0.1:3000/upload
 
-##### 请求体: Body raw(json)
+**请求方式:`[GET]`**
+
+##### 请求体: Body raw(json) 
+
+##### Content-Type:application/json
+
+| 参数名             | 类型   | 内容                                                         | 是否必填 |
+| ------------------ | ------ | ------------------------------------------------------------ | -------- |
+| copyright          | uint   | 是否转载, 1-自制 2-转载                                      | 是       |
+| source             | String | 转载来源                                                     | 转载必填 |
+| tid                | uint   | 投稿分区                                                     | 是       |
+| cover              | String | 封面地址,如已有b站封面填写url即可,没有封面则填写下方的封面路径 | 否       |
+| title              | String | 视频标题                                                     | 是       |
+| desc_format_id     | uint   | 简介类型                                                     | 否       |
+| desc               | String | 视频简介                                                     | 是       |
+| dynamic            | String | 空间动态                                                     | 是       |
+| tag                | String | 视频标签, 以,号隔开                                          | 是       |
+| dtime              | uint   | 延时发布时间，距离提交大于4小时，格式为10位时间戳            | 否       |
+| interactive        | uint   | 是否开启互动 默认为0                                         | 否       |
+| dolby              | uint   | 是否开启杜比音效,0-关闭 1-开启 默认为0                       | 否       |
+| up_selection_reply | bool   | 是否开启评论精选                                             | 是       |
+| up_close_reply     | bool   | 是否关闭评论区                                               | 是       |
+| up_close_danmu     | bool   | 是否关闭弹幕                                                 | 是       |
+| video_path         | String | 上传视频路径                                                 | 是       |
+| cover_path         | String | 视频封面路径                                                 | 否       |
+
+
 
 ```json
 {
@@ -76,13 +102,37 @@ cargo build
 }
 ```
 
-### 查询上传状态
+### 上传任务状态查询
 
-##### 请求地址:  [GET] 127.0.0.1:3000/state
+> #####  http://127.0.0.1:3000/state
 
-##### 请求参数: task_id
+**请求方式`[GET]`**
+
+| 参数名  | 类型   | 内容   | 是否必填 |
+| ------- | ------ | ------ | -------- |
+| task_id | String | 任务id | 是       |
+
+##### 请求示例
 
 ```bash
+# curl 示例
 curl http://127.0.0.1:3000/state?task_id=cc36e47c-af5d-40e1-b149-d304a1c55d90
 ```
+
+### 任务状态查询返回状态类型解答
+
+| 错误类型              | 错误原因           |
+| --------------------- | ------------------ |
+| cookies.json不存在    | cookies.json不存在 |
+| 登录失败,请检查cookie | cookie过期或失效   |
+| 读取封面错误          | 上传封面路径不正确 |
+| 视频文件不存在        |       上传视频路径不正确          |
+| 上传失败 | 视频上传中出现问题 |
+
+###### 正确状态
+
+| 类型   | 详细               |
+| ------ | ------------------ |
+| 进行中 | 视频正在进行上传   |
+| 已完成 | 视频任务已上传完成 |
 
