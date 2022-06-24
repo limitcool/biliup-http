@@ -10,9 +10,12 @@
 # windows
 .\biliup-http.exe
 curl http://127.0.0.1:3000/  # hello biliup-http!
-# 如需在arm环境使用,请暂时先使用安装rust环境进行手动编译。
-git clone https://github.com/limitcool/biliup-http.git
-cargo build 
+# linux-arm
+wget https://github.com/limitcool/biliup-http/releases/download/v0.1.2/biliup-http-v0.1.2-aarch64-linux.tar.xz
+xz -d biliup-http-v0.1.2-aarch64-linux.tar.xz
+tar -xvf biliup-http-v0.1.2-aarch64-linux.tar
+cd biliup-http-v0.1.2-aarch64-linux
+./biliup-http
 ```
 
 ### 上传视频接口请求示例
