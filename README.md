@@ -6,7 +6,13 @@
 
 ```shell
 # 先使用biliup-rs获取cookie,将cookies.json移动至项目目录下
-Cargo run
+# 前往Release下载对应的版本进行解压
+# windows
+.\biliup-http.exe
+curl http://127.0.0.1:3000/  # hello biliup-http!
+# 如需在arm环境使用,请暂时先使用安装rust环境进行手动编译。
+git clone https://github.com/limitcool/biliup-http.git
+cargo build 
 ```
 
 ### 上传接口请求示例
