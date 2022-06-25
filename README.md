@@ -22,7 +22,7 @@ cd biliup-http-v0.1.2-aarch64-linux
 
 > ##### http://127.0.0.1:3000/upload
 
-**请求方式:`[GET]`**
+**请求方式:`[POST]`**
 
 ##### 请求体: Body raw(json) 
 
