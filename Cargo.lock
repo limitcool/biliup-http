@@ -166,7 +166,7 @@ dependencies = [
 
 [[package]]
 name = "biliup-http"
-version = "0.1.1"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -177,6 +177,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tokio",
  "tracing",
  "tracing-subscriber",

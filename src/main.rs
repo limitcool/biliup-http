@@ -1,41 +1,46 @@
-use std::{path::{Path, PathBuf}};
-use reqwest::Body;
 use anyhow::Error;
 use axum::{
-    routing::{get,post},
     extract::{Extension, Query},
     http::status::StatusCode,
-    response::{IntoResponse,Json},
+    response::{IntoResponse, Json},
+    routing::{get, post},
     Router,
 };
-use bytes::{Buf, Bytes};
-use futures::{Stream, StreamExt, };
-use indicatif::{ProgressBar, ProgressStyle};
 use biliup::{
-
+    client::Client,
     line::Probe,
+    video::{BiliBili, Studio, Subtitle, Video},
     {line, VideoFile},
-    client::{Client},
-    video::{BiliBili,Studio,Subtitle,Video},
 };
-use uuid::Uuid;
+use bytes::{Buf, Bytes};
+use config::Config;
+use futures::{Stream, StreamExt};
+use indicatif::{ProgressBar, ProgressStyle};
+use reqwest::Body;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
-use std::time::Instant;
-use std::pin::Pin;
-use std::task::Poll;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::Poll;
+use std::time::Instant;
+use uuid::Uuid;
+mod config;
 
 #[tokio::main]
 async fn main() {
+    let cfg = load_config(Path::new("config.yaml")).unwrap_or(config::new());
     tracing_subscriber::fmt::init();
-    let db:Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let db: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
     let app = Router::new()
-        .route("/", get(root)).layer(Extension(db.clone()))
-        .route("/upload", post(uploadr)).layer(Extension(db.clone()))
-        .route("/state", get(state)).layer(Extension(db.clone()));
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+        .route("/", get(root))
+        .layer(Extension(db.clone()))
+        .route("/upload", post(uploadr))
+        .layer(Extension(db.clone()))
+        .route("/state", get(state))
+        .layer(Extension(db.clone()));
+    let addr = SocketAddr::from(([127, 0, 0, 1], cfg.port));
     println!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -43,68 +48,67 @@ async fn main() {
         .unwrap();
 }
 
-
-async fn root(
-) -> &'static str {
+async fn root() -> &'static str {
     return "hello biliup-http!";
 }
 
 async fn state(
-    Extension(db):Extension<Arc<Mutex<HashMap<String,String>>>>,
-    Query(params): Query<Params>
+    Extension(db): Extension<Arc<Mutex<HashMap<String, String>>>>,
+    Query(params): Query<Params>,
 ) -> String {
     // println!("taskid_{:?}",params.task_id);
     match Extension(db).lock().unwrap().clone().get(&params.task_id) {
-        Some(v) => return  v.to_string(),
-        None => return "任务不存在!".to_string(),  
+        Some(v) => return v.to_string(),
+        None => return "任务不存在!".to_string(),
     }
 }
 
-
 async fn uploadr(
-    Extension(db):Extension<Arc<Mutex<HashMap<String,String>>>>,
-    Json(payload):Json<UploadRequest>
-) ->  impl IntoResponse {
+    Extension(db): Extension<Arc<Mutex<HashMap<String, String>>>>,
+    Json(payload): Json<UploadRequest>,
+) -> impl IntoResponse {
     // println!("{:?}", payload);
     // println!("{:?}", payload.tid);
     if payload.source.is_empty() {
         println!("source is required");
-        return (StatusCode::BAD_REQUEST, "source is required".into_response());
+        return (
+            StatusCode::BAD_REQUEST,
+            "source is required".into_response(),
+        );
     };
-    if payload.title.is_empty(){
+    if payload.title.is_empty() {
         println!("title is required");
         return (StatusCode::BAD_REQUEST, "title is required".into_response());
     };
-    if payload.desc.is_empty(){
+    if payload.desc.is_empty() {
         println!("desc is required");
         return (StatusCode::BAD_REQUEST, "desc is required".into_response());
     };
-    if payload.tag.is_empty(){
+    if payload.tag.is_empty() {
         println!("tags is required");
         return (StatusCode::BAD_REQUEST, "tags is required".into_response());
     };
-    let task_id = Uuid::new_v4().to_string(); 
+    let task_id = Uuid::new_v4().to_string();
     let rid = task_id.clone();
     tokio::spawn(async move {
-        upload_video(task_id,&payload,Extension(db)).await;
+        match upload_video(task_id, &payload, Extension(db)).await {
+            Ok(v) => println!("{:?}", v),
+            Err(e) => eprintln!("{:?}", e),
+        };
     });
-    let  r = UploadResponse{
+    let r = UploadResponse {
         task_id: rid,
         state: "success".to_string(),
     };
 
     (StatusCode::OK, Json(r).into_response())
-    
 }
-
-
 
 #[derive(Serialize)]
 struct UploadResponse {
-    task_id : String,
-    state : String,
+    task_id: String,
+    state: String,
 }
-
 
 #[allow(dead_code)]
 fn make_studio(req: &UploadRequest) -> Studio {
@@ -167,7 +171,7 @@ pub async fn upload(
     client: &Client,
     line: Option<UploadLine>,
     limit: usize,
-) -> Result<Vec<Video>,Error> {
+) -> Result<Vec<Video>, Error> {
     let mut videos = Vec::new();
     let line = match line {
         Some(UploadLine::Kodo) => line::kodo(),
@@ -216,7 +220,6 @@ pub async fn upload(
     Ok(videos)
 }
 
-
 pub enum UploadLine {
     Bda2,
     Ws,
@@ -225,7 +228,6 @@ pub enum UploadLine {
     Cos,
     CosInternal,
 }
-
 
 #[derive(Clone)]
 struct Progressbar {
@@ -238,7 +240,7 @@ impl Progressbar {
         Self { bytes, pb }
     }
 
-    pub fn progress(&mut self) -> Result<Option<Bytes>,Error> {
+    pub fn progress(&mut self) -> Result<Option<Bytes>, Error> {
         let pb = &self.pb;
 
         let content_bytes = &mut self.bytes;
@@ -260,7 +262,7 @@ impl Progressbar {
 }
 
 impl Stream for Progressbar {
-    type Item = Result<Bytes,Error>;
+    type Item = Result<Bytes, Error>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -279,9 +281,11 @@ impl From<Progressbar> for Body {
     }
 }
 
-
-async fn upload_video(uuid:String,u: &UploadRequest,db:Extension<Arc<Mutex<HashMap<String,String>>>>) {
-
+async fn upload_video(
+    uuid: String,
+    u: &UploadRequest,
+    db: Extension<Arc<Mutex<HashMap<String, String>>>>,
+) -> Result<String, Error> {
     let mut s = make_studio(u);
     let client = Client::default();
     let login_info = {
@@ -289,57 +293,42 @@ async fn upload_video(uuid:String,u: &UploadRequest,db:Extension<Arc<Mutex<HashM
             .read(true)
             .write(true)
             .open(Path::new("cookies.json"));
-        match cookies_file{
-            Err(_) => {
-                db.lock().unwrap().insert(uuid, "cookies.json不存在".to_string());
-                return;
-            },
-            _ =>{}
-        };
-        match client.login_by_cookies(cookies_file.unwrap()).await {
-            Ok(login_info) => login_info,
-            Err(_) => {
-                db.lock().unwrap().insert(uuid, "登录失败,请检查cookie".to_string());
-                return;
-            }
-        }
+        client.login_by_cookies(cookies_file?).await?
     };
     // 上传封面
     if !s.cover.starts_with("http") {
         let bilibili = BiliBili::new(&login_info, &client);
         match &std::fs::read(Path::new(&u.cover_path.clone())) {
             Ok(_cover) => {
-                let cover_url = bilibili.cover_up(&std::fs::read(Path::new(&u.cover_path.clone())).unwrap()).await;
+                let cover_url = bilibili
+                    .cover_up(&std::fs::read(Path::new(&u.cover_path.clone())).unwrap())
+                    .await;
                 s.cover = cover_url.unwrap();
             }
             Err(_) => {
                 db.lock().unwrap().insert(uuid, "读取封面错误".to_string());
-                return;
+                return Err(anyhow::Error::msg("读取封面错误"));
             }
         };
     }
     let video_path = PathBuf::from(u.video_path.clone());
     let paths = vec![video_path];
-    let uid = uuid.clone();
+    let _uid = uuid.clone();
     db.lock().unwrap().insert(uuid, "进行中".to_string());
-    match upload(&paths , &client,Some(UploadLine::Ws), 3).await {
-        Ok(videos) => {s.videos=videos;}
-        _ => {
-            db.lock().unwrap().insert(uid.clone(),"视频文件不存在".to_string());
-            return;
-        }
-    }
-    match s.submit(&login_info).await {
-        Ok(_) => {}
-        Err(_) => {
-            db.lock().unwrap().insert(uid.clone(), "上传失败".to_string());
-        }
-    };
-    db.lock().unwrap().insert(uid, "已完成".to_string());
+    upload(&paths, &client, Some(UploadLine::Ws), 3).await?;
+    s.submit(&login_info).await?;
+
+    return Ok("已完成".to_string());
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 struct Params {
     task_id: String,
+}
+
+pub fn load_config(config: &Path) -> Result<Config, Error> {
+    let file = std::fs::File::open(config)?;
+    let config: Config = serde_yaml::from_reader(file)?;
+    Ok(config)
 }

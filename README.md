@@ -17,6 +17,10 @@ tar -xvf biliup-http-v0.1.2-aarch64-linux.tar
 cd biliup-http-v0.1.2-aarch64-linux
 ./biliup-http
 ```
+## 如需指定Http端口,请在目录下新建config.yaml文件,并在其中添加如下内容:
+```yaml
+port: 6000
+```
 
 ### 上传视频接口请求示例
 
